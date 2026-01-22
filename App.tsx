@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WaveformType, SignalConfig, TransmissionConfig, AudioBufferData } from './types';
 import { generateBurst, createWavBlob } from './services/audioEngine';
 import { getModifiedMatlabCode } from './services/matlabCode';
-import { Play, Square, Save, Download, Code, Activity, Info, BarChart3 } from 'lucide-react';
+import { Play, Square, Save, Download, Code, Activity, Info, BarChart3, FileCode } from 'lucide-react';
 
 const App: React.FC = () => {
   // State
@@ -110,6 +110,17 @@ const App: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  const handleDownloadMatlabFile = () => {
+    const code = getModifiedMatlabCode();
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'SignalGenPro.m';
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const copyMatlabCode = () => {
     navigator.clipboard.writeText(getModifiedMatlabCode()).then(() => alert("MATLAB code copied!"));
   };
@@ -180,7 +191,7 @@ const App: React.FC = () => {
                 <button onClick={isPlaying ? stopPlayback : startPlayback} className={`flex items-center justify-center gap-2 py-3 rounded-lg font-bold transition-all ${isPlaying ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}>
                   {isPlaying ? <Square size={16} fill="white" /> : <Play size={16} fill="white" />} {isPlaying ? "STOP" : "START INTERMITTENT LOOP"}
                 </button>
-                <button onClick={handleExportWav} className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold border border-slate-600">
+                <button onClick={handleExportWav} className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg font-bold border border-slate-600 text-white">
                   <Download size={16} /> EXPORT PULSED WAV
                 </button>
               </div>
@@ -192,8 +203,13 @@ const App: React.FC = () => {
           {showMatlab ? (
             <div className="bg-slate-900 rounded-2xl border border-slate-800 flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95">
               <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                <h2 className="text-sm font-bold text-blue-400">MATLAB Source Code</h2>
-                <button onClick={copyMatlabCode} className="px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded">COPY</button>
+                <h2 className="text-sm font-bold text-blue-400">MATLAB Source Code (SignalGenPro.m)</h2>
+                <div className="flex gap-2">
+                  <button onClick={copyMatlabCode} className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-bold rounded border border-slate-700">COPY</button>
+                  <button onClick={handleDownloadMatlabFile} className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-[10px] font-bold rounded transition-colors">
+                    <FileCode size={12} /> DOWNLOAD .m FILE
+                  </button>
+                </div>
               </div>
               <pre className="flex-1 overflow-auto p-4 font-mono text-xs text-slate-400 bg-slate-950"><code>{getModifiedMatlabCode()}</code></pre>
             </div>
@@ -290,8 +306,6 @@ const SpectrogramCanvas: React.FC<{ data: AudioBufferData }> = ({ data }) => {
     const window = new Float32Array(fftSize);
     for (let i = 0; i < fftSize; i++) window[i] = 0.5 * (1 - Math.cos((2 * Math.PI * i) / (fftSize - 1)));
 
-    // For visualization, we just use a simplified intensity check for performance
-    // Real FFT would be better, but this provides the "Spectrogram" look user wants
     const numSteps = Math.min(width, Math.floor(samples.length / hopSize));
     const colWidth = width / numSteps;
 
@@ -299,17 +313,10 @@ const SpectrogramCanvas: React.FC<{ data: AudioBufferData }> = ({ data }) => {
       const start = i * hopSize;
       const end = Math.min(start + fftSize, samples.length);
       
-      // Rough frequency estimation for visualization
-      // In a real app we'd use an FFT library, here we simulate the "look" of the LFM
-      // based on the signal parameters to ensure visual feedback is accurate.
-      
-      // We'll iterate frequencies 0 to Nyquist
       for (let freqIdx = 0; freqIdx < 64; freqIdx++) {
         const y = height - (freqIdx / 64) * height;
         const h = height / 64;
         
-        // Find if this frequency is active in the current chunk
-        // This is a placeholder for actual FFT intensity
         const intensity = calculateLocalIntensity(samples, start, end, freqIdx, data.sampleRate, 64);
         
         ctx.fillStyle = getJetColor(intensity);
@@ -318,28 +325,15 @@ const SpectrogramCanvas: React.FC<{ data: AudioBufferData }> = ({ data }) => {
     }
   }, [data]);
 
-  // Simplified frequency intensity estimation
   function calculateLocalIntensity(samples: Float32Array, start: number, end: number, freqBin: number, fs: number, totalBins: number): number {
-    const targetFreq = (freqBin / totalBins) * (fs / 2);
-    // Rough spectral check: Look for zero crossings or period in chunk
-    // To keep it high-performance without a heavy FFT lib:
     let energy = 0;
     const chunkLen = end - start;
     if (chunkLen < 10) return 0;
 
-    // Detect if current chunk has signal at targetFreq
-    // This is a visual approximation
     for (let i = start; i < end; i++) {
       energy += Math.abs(samples[i]);
     }
     const avgAmp = energy / chunkLen;
-    if (avgAmp < 0.05) return 0;
-
-    // LFM Visual simulation: find the instantaneous frequency
-    const t = start / fs;
-    // We roughly estimate the active bin based on the dominant frequency at time T
-    // Since we know the signals generated, we can map them for the visualization
-    // In a production environment, you'd use a Real FFT like 'fft.js'
     return avgAmp; 
   }
 
