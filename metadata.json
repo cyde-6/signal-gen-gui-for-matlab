@@ -1,0 +1,7 @@
+{
+  "name": "SignalGen Pro Web & MATLAB Exporter",
+  "description": "A high-fidelity signal generation tool for CW and LFM waveforms, featuring intermittent playback controls, total duration loops, and a code exporter for modified MATLAB GUI functionality.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
